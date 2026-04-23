@@ -10,5 +10,5 @@ def main():
 
     run_load_test(scheduler,num_users=10)
 
-    if __name__== "__main__":
-        main()
+if __name__ == "__main__":
+    main()
