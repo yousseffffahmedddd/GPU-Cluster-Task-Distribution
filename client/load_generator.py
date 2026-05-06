@@ -12,7 +12,7 @@ from typing import List, Optional
 import uuid
 
 from common.models import InferenceRequest, InferenceResponse
-from monitoring.metrics import MetricsCollector
+from metrics import MetricsCollector
 
 
 class LoadGenerator:
