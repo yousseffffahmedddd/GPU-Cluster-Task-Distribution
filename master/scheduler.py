@@ -1,4 +1,4 @@
-"""Master scheduler and mock GPU worker.
+"""Master scheduler and real GPU worker.
 
 Corrected distributed architecture
 ----------------------------------
@@ -9,7 +9,7 @@ Runtime flow:
     Client Load Generator
         -> External NGINX Reverse Proxy
         -> Master Scheduler backend controller
-        -> Mock GPU Worker
+        -> GPU Worker
 
 The Master Scheduler is still important, but its responsibility is different:
 - choose/configure the proxy strategy before a traffic batch starts;
@@ -31,8 +31,8 @@ from common.models import InferenceRequest, InferenceResponse, SchedulingDecisio
 from lb.nginx_proxy import NginxReverseProxy
 
 
-class MockGPUWorker:
-    """Temporary mock with the same interface expected from a real worker.
+class GPUWorker:
+    """Real GPU worker utilizing RAG and LLM pipeline.
 
     Future real-worker interface:
         worker.id
@@ -45,8 +45,8 @@ class MockGPUWorker:
         worker.get_ram_utilization()
         await worker.process(request)
 
-    The mock simulates processing delay, active tasks, capacity, heartbeat, and
-    optional failure. It does not run a real LLM/RAG pipeline.
+    The worker simulates active tasks, capacity, heartbeat, and
+    optional failure, while executing actual LLM generation.
     """
 
     def __init__(
@@ -101,10 +101,7 @@ class MockGPUWorker:
         return min(1.0, base_model_memory + active_ratio * 0.60 + noise)
 
     async def process(self, request: InferenceRequest) -> str:
-        """Simulate GPU worker processing.
-
-        Replace only this method later with the real RAG + LLM pipeline.
-        """
+        """Execute the real RAG + LLM pipeline."""
         if not self.is_alive:
             self.failed_requests += 1
             raise RuntimeError(f"Worker {self.id} is down")
@@ -119,9 +116,34 @@ class MockGPUWorker:
                 self.fail()
                 raise RuntimeError(f"Worker {self.id} failed during processing")
 
-            await asyncio.sleep(random.uniform(self.min_delay, self.max_delay))
+            import aiohttp
+            from LLM.inference import llm_generate
+            from Rag.retriever import RAGRetriever
+
+            if not hasattr(self, "_session") or self._session is None:
+                self._session = aiohttp.ClientSession()
+            if not hasattr(self, "_retriever"):
+                self._retriever = RAGRetriever()
+
+            context = ""
+            try:
+                chunks = await self._retriever.retrieve(self._session, request.prompt, top_k=3)
+                if chunks:
+                    context = "\n".join(chunks)
+            except Exception:
+                pass  # degrade gracefully
+
+            augmented_prompt = (
+                f"Context:\n{context}\n\nQuestion: {request.prompt}"
+                if context else request.prompt
+            )
+
+            result = await llm_generate(self._session, augmented_prompt)
+            if result.get("status", "") != "ok":
+                raise RuntimeError(f"LLM Error: {result.get('status')}")
+
             self.processed_requests += 1
-            return f"Mock answer for request {request.request_id} from {self.id}"
+            return result.get("response", "")
         except Exception:
             self.failed_requests += 1
             raise
@@ -152,7 +174,7 @@ class MasterScheduler:
 
     def __init__(
         self,
-        workers: List[MockGPUWorker],
+        workers: List[GPUWorker],
         proxy: NginxReverseProxy,
         scheduling_policy: str = AUTO_POLICY,
         heartbeat_interval: float = 0.5,
@@ -248,7 +270,7 @@ class MasterScheduler:
         if worker is not None:
             worker.recover()
 
-    def _find_worker(self, worker_id: str) -> Optional[MockGPUWorker]:
+    def _find_worker(self, worker_id: str) -> Optional[GPUWorker]:
         for worker in self.workers:
             if worker.id == worker_id:
                 return worker
@@ -266,7 +288,7 @@ class MasterScheduler:
             self.prepare_for_traffic(expected_users=1)
         return await self.proxy.submit_request(request, backend=self)
 
-    def get_routable_workers(self) -> List[MockGPUWorker]:
+    def get_routable_workers(self) -> List[GPUWorker]:
         """Return workers that the external proxy may route to."""
         self.detect_failed_workers()
         now = time.time()
@@ -289,7 +311,7 @@ class MasterScheduler:
     async def execute_on_worker(
         self,
         request: InferenceRequest,
-        worker: MockGPUWorker,
+        worker: GPUWorker,
         selected_strategy: str,
         request_started_at: float,
     ) -> InferenceResponse:
