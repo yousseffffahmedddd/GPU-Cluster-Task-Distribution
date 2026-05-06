@@ -1,13 +1,14 @@
-#round robin
-class LoadBalancer:
-    def __init__(self,workers):
-        self.workers=workers
-        self.index=0
+"""Compatibility wrapper for the external NGINX-style load balancer.
 
-    def get_next_worker(self):
-        worker=self.workers[self.index]
-        self.index=(self.index+1)%len(self.workers)
-        return worker
-    def dispatch(self,request):
-        worker=self.get_next_worker()
-        return worker.process(request)
+The project originally had an in-process LoadBalancer class. The architecture is
+now corrected: load balancing is represented as an external reverse proxy layer.
+
+Keep this file so imports from older code still work, but the real implementation
+is `NginxReverseProxy` in `lb/nginx_proxy.py`.
+"""
+
+from lb.nginx_proxy import NginxReverseProxy
+
+
+# Backward-compatible name used by main.py and older project files.
+LoadBalancer = NginxReverseProxy
