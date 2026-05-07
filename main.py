@@ -17,10 +17,10 @@ async def main():
     
     # 2. Initialize GPU Workers
     workers = [
-        GPUWorker(worker_id="GPU-0", capacity=10),
-        GPUWorker(worker_id="GPU-1", capacity=10),
-        GPUWorker(worker_id="GPU-2", capacity=10),
-        GPUWorker(worker_id="GPU-3", capacity=10),
+        GPUWorker(worker_id="GPU-0", capacity=20),
+        GPUWorker(worker_id="GPU-1", capacity=20),
+        GPUWorker(worker_id="GPU-2", capacity=20),
+        GPUWorker(worker_id="GPU-3", capacity=20),
     ]
     
     # 3. Initialize Master Scheduler (which now controls the backend)
@@ -41,7 +41,7 @@ async def main():
     print(f"   Strategy: {decision.selected_strategy}")
     
     # Run the load test
-    await load_gen.run(concurrent_users=expected_users, max_in_flight=8)
+    await load_gen.run(concurrent_users=expected_users, max_in_flight=50)
     
     # Gracefully shut down the scheduler
     await scheduler.stop()
