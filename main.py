@@ -37,7 +37,7 @@ async def main():
     metrics = MetricsCollector()
     load_gen = LoadGenerator(proxy=proxy, backend=scheduler, metrics=metrics)
     
-    print(f"🚦 Starting Load Test with {expected_users} concurrent users...")
+    print(f" Starting Load Test with {expected_users} concurrent users...")
     print(f"   Strategy: {decision.selected_strategy}")
     
     # Run the load test
