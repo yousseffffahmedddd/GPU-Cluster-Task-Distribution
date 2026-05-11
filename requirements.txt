@@ -1,0 +1,4 @@
+aiohttp
+faiss-cpu
+nest-asyncio
+numpy
