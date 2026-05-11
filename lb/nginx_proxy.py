@@ -174,16 +174,12 @@ class NginxReverseProxy:
         return workers[0]
 
     @staticmethod
+    @staticmethod
     def _load_score(worker: object) -> float:
-        """Weighted score used by the project-specific load-aware strategy.
-
-        Formula:
-            score = active_ratio * 0.60 + cpu * 0.25 + ram * 0.15
-
-        Lower score wins. Workers that are dead, stale, or full are filtered by
-        the Master backend before reaching this method.
-        """
-        active_ratio = worker.active_tasks / max(worker.capacity, 1)
-        cpu = worker.get_cpu_utilization()
-        ram = worker.get_ram_utilization()
-        return (active_ratio * 0.60) + (cpu * 0.25) + (ram * 0.15)
+      """
+      score = active_ratio * 0.70 + ram * 0.30
+      Lower score wins. cpu_utilization removed — no longer tracked.
+      """
+      active_ratio = worker.active_tasks / max(worker.capacity, 1)
+      ram = worker.get_ram_utilization()
+      return (active_ratio * 0.70) + (ram * 0.30)

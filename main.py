@@ -35,7 +35,7 @@ async def main():
     ]
     
     # 3. Initialize Master Scheduler (which now controls the backend)
-    scheduler = MasterScheduler(workers=workers, proxy=proxy, scheduling_policy="auto")
+    scheduler = MasterScheduler(workers=workers, proxy=proxy)
     
     # Start worker heartbeat monitoring
     scheduler.start()

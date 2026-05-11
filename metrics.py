@@ -11,8 +11,6 @@ from common.models import InferenceResponse, SchedulingDecision, WorkerSnapshot
 
 
 class MetricsCollector:
-    """Collects latency, throughput, worker usage, and errors."""
-
     def __init__(self) -> None:
         self.start_time = time.perf_counter()
         self.end_time = self.start_time
@@ -27,7 +25,6 @@ class MetricsCollector:
         self.total_requests += 1
         self.end_time = time.perf_counter()
         self.latencies_ms.append(response.latency_ms)
-
         if response.success:
             self.successful_requests += 1
             if response.worker_id is not None:
@@ -43,7 +40,6 @@ class MetricsCollector:
         max_latency = max(self.latencies_ms) if self.latencies_ms else 0.0
         throughput = self.total_requests / duration
         error_rate = (self.failed_requests / self.total_requests * 100) if self.total_requests else 0.0
-
         return {
             "total_requests": self.total_requests,
             "successful_requests": self.successful_requests,
@@ -60,13 +56,10 @@ class MetricsCollector:
 
 
 def print_summary(decision: SchedulingDecision, summary: Dict, proxy_name: str = "external-nginx-proxy") -> None:
-    """Print a clean report after each simulation."""
     print("\n" + "=" * 86)
     print(
-        "Simulation summary | "
-        f"master_policy={decision.policy_name} | "
-        f"selected_strategy={decision.selected_strategy} | "
-        f"users={decision.expected_users}"
+        f"Simulation summary | master_policy={decision.policy_name} | "
+        f"selected_strategy={decision.selected_strategy} | users={decision.expected_users}"
     )
     print("=" * 86)
     print(f"External proxy      : {proxy_name}")
@@ -94,7 +87,6 @@ def print_summary(decision: SchedulingDecision, summary: Dict, proxy_name: str =
             f"  - {worker.worker_id}: {status} | "
             f"active={worker.active_tasks}/{worker.capacity} | "
             f"heartbeat_age={worker.last_heartbeat_age_sec:.2f}s | "
-            f"cpu={worker.cpu_utilization * 100:.1f}% | "
             f"ram={worker.ram_utilization * 100:.1f}% | "
             f"processed={worker.processed_requests} | "
             f"failed={worker.failed_requests}"
