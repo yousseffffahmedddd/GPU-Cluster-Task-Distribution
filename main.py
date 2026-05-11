@@ -1,5 +1,6 @@
 import asyncio
 import nest_asyncio
+import aiohttp
 
 # Required for Colab to run asyncio in a Jupyter environment
 nest_asyncio.apply()
@@ -8,6 +9,16 @@ from master.scheduler import GPUWorker, MasterScheduler
 from lb.nginx_proxy import NginxReverseProxy
 from client.load_generator import LoadGenerator
 from metrics import MetricsCollector, print_summary
+from Rag.retriever import RAGRetriever
+
+# Dummy documents for the RAG Knowledge Base
+DOCS = [
+    "Paris is the capital of France. It is known for the Eiffel Tower.",
+    "Cairo is the capital of Egypt. It lies on the Nile River.",
+    "Neural networks are inspired by the human brain and learn from data.",
+    "FAISS is a library by Meta for fast similarity search of dense vectors.",
+    "The T4 GPU by NVIDIA is used for machine learning inference in the cloud.",
+]
 
 async def main():
     print("🚀 Initializing components...")
@@ -37,11 +48,21 @@ async def main():
     metrics = MetricsCollector()
     load_gen = LoadGenerator(proxy=proxy, backend=scheduler, metrics=metrics)
     
-    print(f" Starting Load Test with {expected_users} concurrent users...")
-    print(f"   Strategy: {decision.selected_strategy}")
-    
-    # Run the load test
-    await load_gen.run(concurrent_users=expected_users, max_in_flight=50)
+    print("📚 Building RAG Knowledge Base...")
+    async with aiohttp.ClientSession() as session:
+        # Initialize RAG and build index
+        retriever = RAGRetriever()
+        await retriever.build_index(session, DOCS)
+        
+        # Share the populated retriever with all workers
+        for worker in workers:
+            worker._retriever = retriever
+
+        print(f" Starting Load Test with {expected_users} concurrent users...")
+        print(f"   Strategy: {decision.selected_strategy}")
+        
+        # Run the load test inside the active session
+        await load_gen.run(concurrent_users=expected_users, max_in_flight=50)
     
     # Gracefully shut down the scheduler
     await scheduler.stop()
